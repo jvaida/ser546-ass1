@@ -42,7 +42,7 @@ async function instructions() {
     const s3 = new AWS.S3();
     const sqs = new AWS.SQS();
 
-    // Dynamically generated bucket name
+    // created bucket name by current date
     const bucketName = `bucket1-${Date.now()}`;
 
     // Create AWS Resources
@@ -73,7 +73,7 @@ async function instructions() {
     }).promise();
 
     // Perform SQS Operations
-    await queueStuff("https://sqs.us-east-1.amazonaws.com/339885026049/queue1");
+    await queueStuff("https://sqs.us-east-1.amazonaws.com/339885026049/queue1.fifo");
 
     // Wait for 10 seconds before deletion
     console.log('Waiting for 10 seconds');
@@ -90,6 +90,7 @@ async function createEC2(ec2) {
         InstanceType: 't2.micro',
         MinCount: 1,
         MaxCount: 1,
+        KeyName: 'karthik_keypair',
     };
 
     try {
@@ -114,7 +115,13 @@ async function createS3(s3, bucketName) {
 // create sqs queue
 async function createSQS(sqs) {
     try {
-        await sqs.createQueue({ QueueName: 'queue1' }).promise();
+        await sqs.createQueue({ 
+            QueueName: 'queue1.fifo',
+            Attributes: {
+                FifoQueue: 'true',
+                ContentBasedDeduplication: 'true'
+            }
+        }).promise();
         console.log("Queue created successfully");
     } catch (err) {
         console.error("Error creating queue:", err);
@@ -166,7 +173,7 @@ async function listAll(ec2, s3, sqs) {
 async function queueStuff(queueUrl) {
     const sqs = new AWS.SQS();
     try {
-        // Send a message
+        // send a message
         const sendParams = {
             QueueUrl: queueUrl,
             MessageBody: 'This is a test message',
@@ -176,11 +183,12 @@ async function queueStuff(queueUrl) {
                     StringValue: 'test message',
                 },
             },
+            MessageGroupId: 'jvaida_546' 
         };
         const sendResult = await sqs.sendMessage(sendParams).promise();
         console.log('Message sent successfully:', sendResult.MessageId);
 
-        // Check message count in queue
+        // check message count in queue
         const listParams = {
             QueueUrl: queueUrl,
             AttributeNames: ['ApproximateNumberOfMessages'],
@@ -188,7 +196,7 @@ async function queueStuff(queueUrl) {
         const listResult = await sqs.getQueueAttributes(listParams).promise();
         console.log('Number of messages in the queue:', listResult.Attributes.ApproximateNumberOfMessages);
 
-        // Receive a message
+        // receive(basically pull/fetch) a message
         const receiveParams = {
             QueueUrl: queueUrl,
             MaxNumberOfMessages: 10,
@@ -209,7 +217,7 @@ async function queueStuff(queueUrl) {
             console.log('No messages available.');
         }
 
-        // Check message count in queue again
+        // check queue coount again
         const finalListResult = await sqs.getQueueAttributes(listParams).promise();
         console.log('Number of messages in the queue:', finalListResult.Attributes.ApproximateNumberOfMessages);
 
@@ -323,7 +331,7 @@ async function deletionAndListSteps(ec2, s3, sqs) {
     await deleteAllSQSQueues(sqs);
 
     console.log('Waiting for 20 seconds');
-    await new Promise(resolve => setTimeout(resolve, 20000));
+    await new Promise(resolve => setTimeout(resolve, 25000));
 
     console.log('\nShow remaining EC2 instances');
     await listEC2Instances(ec2);
