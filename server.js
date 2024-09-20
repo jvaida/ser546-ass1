@@ -34,6 +34,18 @@ async function instructions() {
         region: 'us-east-1',
     });
 
+    const sts = new AWS.STS();
+    let accountId;
+
+    try {
+        const data = await sts.getCallerIdentity({}).promise();
+        accountId = data.Account;
+        console.log(`Account ID: ${accountId}`);
+    } catch (err) {
+        console.error("Error retrieving account ID:", err);
+        return;
+    }
+
     // console.log('AWS config set');
     // console.log('accessKeyId: ', awsDeetsInput.accessKeyId);
     // console.log('secretAccessKey: ', awsDeetsInput.secretAccessKey);
@@ -53,7 +65,7 @@ async function instructions() {
     console.log("Request sent, wait for 1 min");
 
     // Wait for 1 minute
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 60000));
 
     // List all resources
     await listAll(ec2, s3, sqs);
@@ -73,7 +85,7 @@ async function instructions() {
     }).promise();
 
     // Perform SQS Operations
-    await queueStuff("https://sqs.us-east-1.amazonaws.com/339885026049/queue1.fifo");
+    await queueStuff(`https://sqs.us-east-1.amazonaws.com/${accountId}/queue1.fifo`);
 
     // Wait for 10 seconds before deletion
     console.log('Waiting for 10 seconds');
@@ -331,7 +343,7 @@ async function deletionAndListSteps(ec2, s3, sqs) {
     await deleteAllSQSQueues(sqs);
 
     console.log('Waiting for 20 seconds');
-    await new Promise(resolve => setTimeout(resolve, 25000));
+    await new Promise(resolve => setTimeout(resolve, 20000));
 
     console.log('\nShow remaining EC2 instances');
     await listEC2Instances(ec2);
